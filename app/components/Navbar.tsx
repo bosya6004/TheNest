@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { AppBar, Toolbar, Typography, Box, Button} from "@mui/material";
+import { AppBar, Toolbar, Typography, Button} from "@mui/material";
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 
