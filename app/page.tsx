@@ -41,7 +41,7 @@ export default function HomePage() {
             <ChevronLeft />
           </IconButton>
           <Typography variant="h6" sx={{ mx: 2 }}>
-            February
+            February, 2025
           </Typography>
           <IconButton aria-label="next month">
             <ChevronRight />
@@ -54,7 +54,7 @@ export default function HomePage() {
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold", textAlign: "center" }}>
-                  Habits
+                  
                 </TableCell>
                 {[...Array(28)].map((_, i) => (
                   <TableCell
@@ -70,7 +70,7 @@ export default function HomePage() {
               {/* Example row for design */}
               <TableRow>
                 <TableCell sx={{ fontWeight: "bold", textAlign: "center" }}>
-                  Habit 1
+                  Excercise
                 </TableCell>
                 {[...Array(28)].map((_, i) => (
                   <TableCell key={i} sx={{ textAlign: "center" }} />
