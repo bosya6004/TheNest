@@ -22,7 +22,7 @@ import dayjs from "dayjs";
 export default function HomePage() {
   const { isSignedIn } = useUser(); // Check if user is logged in
   const [currentDate, setCurrentDate] = useState(dayjs());
-  const [habits, setHabits] = useState(["Workout", "Read"]);
+  const [habits] = useState(["Workout", "Read"]);
 
   // Function to change the month
   const changeMonth = (direction: number) => {
