@@ -217,11 +217,59 @@ export default function HomePage() {
     if (isSignedIn) loadHabitsFromFirestore();
   }, [isSignedIn, monthKey]);
 
+
+  if (!isSignedIn) {
+    return (
+      <Box>
+        <Navbar />
+        <Container
+          maxWidth="lg"
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            minHeight: "100vh",
+            pt: 4,
+          }}
+        >
+          <Typography
+            variant="h5"
+            sx={{ fontSize: "1.5rem", color: "gray", mb: 3, textAlign: "center" }}
+          >
+            Please log in to use The Nest Habit Tracker
+          </Typography>
+  
+          {/* Autoplaying, silent demo video */}
+          <Box
+            component="video"
+            src="/demo.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            sx={{
+              width: "100%",
+              maxWidth: "900px",
+              borderRadius: 3,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+              objectFit: "cover",
+            }}
+          />
+        </Container>
+      </Box>
+    );
+  }
+  
+  // Only show loading state *if* user is signed in
   if (isLoading) {
     return (
       <Box>
         <Navbar />
-        <Container maxWidth="md" sx={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center" }}>
+        <Container
+          maxWidth="md"
+          sx={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center" }}
+        >
           <Box textAlign="center">
             <Typography variant="h6" mb={2}>Loading your habits...</Typography>
             <CircularProgress />
@@ -230,49 +278,7 @@ export default function HomePage() {
       </Box>
     );
   }
-  if (!isSignedIn) {
-    return (
-      <Box>
-      <Navbar />
-      <Container
-        maxWidth="lg"
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "flex-start",
-          minHeight: "100vh",
-          pt: 4,
-        }}
-      >
-        <Typography
-          variant="h5"
-          sx={{ fontSize: "1.5rem", color: "gray", mb: 3, textAlign: "center" }}
-        >
-          Please log in to use The Nest Habit Tracker
-        </Typography>
 
-        {/* Autoplaying, silent demo video */}
-        <Box
-          component="video"
-          src="/demo.mp4" // Make sure to place demo.mp4 in the /public folder
-          autoPlay
-          muted
-          loop
-          playsInline
-          sx={{
-            width: "100%",
-            maxWidth: "900px",
-            borderRadius: 3,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-            objectFit: "cover",
-          }}
-        />
-      </Container>
-    </Box>
-    );
-    
-  }
 
   return (
     <Box>
