@@ -14,13 +14,21 @@ export async function GET() {
   }
 
   try {
-    const habitsRef = db.collection("users").doc(userId).collection("habits");
+    const habitsRef = db
+      .collection("users")
+      .doc(userId)
+      .collection("habits")
+      .orderBy("createdAt", "asc"); // ✅ Order by creation time
+
     const snapshot = await habitsRef.get();
 
     const habits: { name: string; goal: number }[] = [];
     snapshot.forEach((doc) => {
       const data = doc.data();
-      habits.push({ name: doc.id, goal: data.goal || 0 });
+      habits.push({
+        name: doc.id,
+        goal: data.goal || 0,
+      });
     });
 
     return NextResponse.json({ success: true, habits });

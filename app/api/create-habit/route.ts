@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { db, isFirestoreAvailable } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
+import admin from "firebase-admin";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
@@ -25,7 +26,13 @@ export async function POST(req: Request) {
       .collection("habits")
       .doc(habitId);
 
-    await docRef.set({ goal: goal || 0 }, { merge: true });
+    await docRef.set(
+      {
+        goal: goal || 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(), // ✅ Set createdAt timestamp
+      },
+      { merge: true }
+    );
 
     return NextResponse.json({ success: true });
   } catch (err) {

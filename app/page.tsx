@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import Navbar from "@/app/components/Navbar";
+import { CircularProgress } from "@mui/material";
 import {
   Box,
   Container,
@@ -59,6 +60,10 @@ export default function HomePage() {
   const today = dayjs();
   const isThisMonth = today.format("YYYY-MM") === monthKey;
   const todayDate = today.date();
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
+  const [habitLimitAlertOpen, setHabitLimitAlertOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
 
   const changeMonth = (direction: number) => {
@@ -184,24 +189,27 @@ export default function HomePage() {
 
   const loadHabitsFromFirestore = async () => {
     try {
+      setIsLoading(true);
       const res = await fetch("/api/get-habits");
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed to load habits");
-
+  
       setHabits(data.habits);
-
+  
       const response = await fetch("/api/load-habits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ habits: data.habits.map((h: any) => h.name), month: monthKey }),
       });
-
+  
       const habitData = await response.json();
       if (habitData.success) {
         setHabitData(habitData.habitData);
       }
     } catch (err) {
       console.error("Error loading habits:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -209,17 +217,61 @@ export default function HomePage() {
     if (isSignedIn) loadHabitsFromFirestore();
   }, [isSignedIn, monthKey]);
 
-  if (!isSignedIn) {
+  if (isLoading) {
     return (
       <Box>
         <Navbar />
-        <Container maxWidth="md" sx={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          <Typography variant="h5" sx={{ fontSize: "1.2rem", color: "gray" }}>
-            Please Log in to Use The Nest Habit Tracker
-          </Typography>
+        <Container maxWidth="md" sx={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center" }}>
+          <Box textAlign="center">
+            <Typography variant="h6" mb={2}>Loading your habits...</Typography>
+            <CircularProgress />
+          </Box>
         </Container>
       </Box>
     );
+  }
+  if (!isSignedIn) {
+    return (
+      <Box>
+      <Navbar />
+      <Container
+        maxWidth="lg"
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          minHeight: "100vh",
+          pt: 4,
+        }}
+      >
+        <Typography
+          variant="h5"
+          sx={{ fontSize: "1.5rem", color: "gray", mb: 3, textAlign: "center" }}
+        >
+          Please log in to use The Nest Habit Tracker
+        </Typography>
+
+        {/* Autoplaying, silent demo video */}
+        <Box
+          component="video"
+          src="/demo.mp4" // Make sure to place demo.mp4 in the /public folder
+          autoPlay
+          muted
+          loop
+          playsInline
+          sx={{
+            width: "100%",
+            maxWidth: "900px",
+            borderRadius: 3,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+            objectFit: "cover",
+          }}
+        />
+      </Container>
+    </Box>
+    );
+    
   }
 
   return (
@@ -400,7 +452,10 @@ export default function HomePage() {
                   </IconButton>
                   <IconButton
                     size="small"
-                    onClick={() => deleteHabit(name)}
+                    onClick={() => {
+                      setHabitToDelete(name);
+                      setConfirmDeleteOpen(true);
+                    }}
                     sx={{ fontSize: "inherit" }}
                   >
                     <Delete fontSize="inherit" />
@@ -483,7 +538,15 @@ export default function HomePage() {
 
         {/* + New Habit Button */}
         <Box mt={2}>
-          <Button variant="outlined" size="small" onClick={() => setNewHabitDialogOpen(true)}>+ New Habit</Button>
+          <Button variant="outlined" size="small" 
+          onClick={() => {
+            if (habits.length >= 10) {
+              setHabitLimitAlertOpen(true);
+            } else {
+              setNewHabitDialogOpen(true);
+            }
+          }}
+          >+ New Habit</Button>
         </Box>
 
         {/* Create Habit Dialog */}
@@ -676,6 +739,36 @@ export default function HomePage() {
               }}
             >
               Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
+          <DialogTitle>Delete Habit</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to delete the habit "{habitToDelete}"?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteOpen(false)}>No</Button>
+            <Button
+              onClick={() => {
+                if (habitToDelete) deleteHabit(habitToDelete);
+                setConfirmDeleteOpen(false);
+                setHabitToDelete(null);
+              }}
+              color="error"
+            >
+              Yes, Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog open={habitLimitAlertOpen} onClose={() => setHabitLimitAlertOpen(false)}>
+          <DialogTitle>Habit Limit Reached</DialogTitle>
+          <DialogContent>
+            <Typography>You can only create up to 10 habits.</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setHabitLimitAlertOpen(false)} autoFocus>
+              OK
             </Button>
           </DialogActions>
         </Dialog>
