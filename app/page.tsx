@@ -31,9 +31,9 @@ import { saveHabit } from "@/lib/saveHabit";
 export default function HomePage() {
   const { isSignedIn } = useUser();
   const [currentDate, setCurrentDate] = useState(dayjs());
-  const [habits, setHabits] = useState<{ name: string; goal: number }[]>([]);
-  const [habitData, setHabitData] = useState<{ [habit: string]: { [day: string]: boolean } }>({});
-  const [hoveredHabit, setHoveredHabit] = useState<string | null>(null);
+  const [habits, setHabits] = useState<{ id: string; name: string; goal: number }[]>([]);
+  const [habitData, setHabitData] = useState<{ [habitId: string]: { [day: string]: boolean } }>({});
+  const [hoveredHabitId, setHoveredHabitId] = useState<string | null>(null);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editHabitOriginalName, setEditHabitOriginalName] = useState("");
@@ -64,27 +64,28 @@ export default function HomePage() {
   const [habitToDelete, setHabitToDelete] = useState<string | null>(null);
   const [habitLimitAlertOpen, setHabitLimitAlertOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [editHabitId, setEditHabitId] = useState<string | null>(null);
 
 
   const changeMonth = (direction: number) => {
     setCurrentDate((prevDate) => prevDate.add(direction, "month"));
   };
 
-  const handleCheck = async (habit: string, day: string) => {
-    const current = habitData?.[habit]?.[day] || false;
+  const handleCheck = async (habitId: string, day: string) => {
+    const current = habitData?.[habitId]?.[day] || false;
     const updatedValue = !current;
-
+  
     setHabitData((prev) => ({
       ...prev,
-      [habit]: {
-        ...prev[habit],
+      [habitId]: {
+        ...prev[habitId],
         [day]: updatedValue,
       },
     }));
-
+  
     try {
       await saveHabit({
-        habitId: habit,
+        habitId,
         month: monthKey,
         day,
         value: updatedValue,
@@ -94,19 +95,19 @@ export default function HomePage() {
     }
   };
 
-  const createHabit = async (habitId: string, goal: number) => {
+  const createHabit = async (name: string, goal: number) => {
     try {
       const res = await fetch("/api/create-habit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ habitId, goal }),
+        body: JSON.stringify({ name, goal }),
       });
-
+  
       const data = await res.json();
-      return data.success;
+      return data.success ? { success: true, id: data.id } : { success: false };
     } catch (err) {
       console.error("Error creating habit:", err);
-      return false;
+      return { success: false };
     }
   };
 
@@ -120,7 +121,7 @@ export default function HomePage() {
 
       const data = await res.json();
       if (data.success) {
-        setHabits((prev) => prev.filter((h) => h.name !== habitId));
+        setHabits((prev) => prev.filter((h) => h.id !== habitId));
         setHabitData((prev) => {
           const newData = { ...prev };
           delete newData[habitId];
@@ -133,52 +134,26 @@ export default function HomePage() {
   };
 
   const updateHabit = async () => {
-    if (!editHabitOriginalName || !editHabitName) return;
+    if (!editHabitId || !editHabitName) return;
   
     try {
-      // If the name changed, call rename API
-      if (editHabitName !== editHabitOriginalName) {
-        const renameRes = await fetch("/api/rename-habit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            oldName: editHabitOriginalName,
-            newName: editHabitName,
-          }),
-        });
-  
-        const renameData = await renameRes.json();
-        if (!renameData.success) throw new Error(renameData.error || "Rename failed");
-      }
-  
-      // Update goal regardless of rename
       await fetch("/api/edit-habit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          habitId: editHabitName,
+          habitId: editHabitId,
+          name: editHabitName,
           goal: parseInt(editHabitGoal),
         }),
       });
   
-      // Update local state
       setHabits((prev) =>
         prev.map((h) =>
-          h.name === editHabitOriginalName
-            ? { name: editHabitName, goal: parseInt(editHabitGoal) }
+          h.id === editHabitId
+            ? { ...h, name: editHabitName, goal: parseInt(editHabitGoal) }
             : h
         )
       );
-  
-      // Move habitData to new name if name changed
-      if (editHabitName !== editHabitOriginalName) {
-        setHabitData((prev) => {
-          const updated = { ...prev };
-          updated[editHabitName] = updated[editHabitOriginalName];
-          delete updated[editHabitOriginalName];
-          return updated;
-        });
-      }
   
       setEditDialogOpen(false);
     } catch (err) {
@@ -186,6 +161,7 @@ export default function HomePage() {
       alert("Something went wrong while updating the habit.");
     }
   };
+  
 
   const loadHabitsFromFirestore = async () => {
     try {
@@ -199,7 +175,7 @@ export default function HomePage() {
       const response = await fetch("/api/load-habits", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ habits: data.habits.map((h: any) => h.name), month: monthKey }),
+        body: JSON.stringify({ habits: data.habits.map((h: any) => h.id), month: monthKey }),
       });
   
       const habitData = await response.json();
@@ -388,8 +364,8 @@ export default function HomePage() {
       </TableRow>
     </TableHead>
     <TableBody>
-      {habits.map(({ name, goal }, rowIndex) => {
-        const achieved = Object.values(habitData?.[name] || {}).filter(Boolean).length;
+    {habits.map(({ id, name, goal }, rowIndex) => {
+      const achieved = Object.values(habitData?.[id] || {}).filter(Boolean).length;
 
         const getColors = (index: number) => {
           const colors = [
@@ -404,10 +380,10 @@ export default function HomePage() {
         const goalMet = achieved >= goal;
 
         return (
-          <TableRow key={name}>
+          <TableRow key={id}>
             <TableCell
-              onMouseEnter={() => setHoveredHabit(name)}
-              onMouseLeave={() => setHoveredHabit(null)}
+              onMouseEnter={() => setHoveredHabitId(id)}
+              onMouseLeave={() => setHoveredHabitId(null)}
               sx={{
                 position: "relative",
                 textAlign: "center",
@@ -420,7 +396,7 @@ export default function HomePage() {
               {/* Habit Name */}
               <Box
                 sx={{
-                  visibility: hoveredHabit === name ? "hidden" : "visible",
+                  visibility: hoveredHabitId === id ? "hidden" : "visible",
                   transition: "visibility 0.2s",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -431,7 +407,7 @@ export default function HomePage() {
               </Box>
 
               {/* Overlay Edit/Delete Buttons */}
-              {hoveredHabit === name && (
+              {hoveredHabitId === id && (
                 <Box
                   sx={{
                     position: "absolute",
@@ -447,7 +423,7 @@ export default function HomePage() {
                   <IconButton
                     size="small"
                     onClick={() => {
-                      setEditHabitOriginalName(name);
+                      setEditHabitId(id);
                       setEditHabitName(name);
                       setEditHabitGoal(goal.toString());
                       setEditDialogOpen(true);
@@ -459,7 +435,7 @@ export default function HomePage() {
                   <IconButton
                     size="small"
                     onClick={() => {
-                      setHabitToDelete(name);
+                      setHabitToDelete(id);
                       setConfirmDeleteOpen(true);
                     }}
                     sx={{ fontSize: "inherit" }}
@@ -471,12 +447,12 @@ export default function HomePage() {
             </TableCell>
             {[...Array(daysInMonth)].map((_, i) => {
               const day = (i + 1).toString();
-              const checked = habitData?.[name]?.[day] || false;
+              const checked = habitData?.[id]?.[day] || false;
 
               return (
                 <TableCell
                   key={i}
-                  onClick={() => handleCheck(name, day)}
+                  onClick={() => handleCheck(id, day)}
                   sx={{
                     borderLeft:
                       isThisMonth && todayDate === i + 1
@@ -564,13 +540,14 @@ export default function HomePage() {
               margin="dense"
               label="Habit Name"
               fullWidth
+              autoComplete="off"
               value={newHabitName}
               onChange={(e) => {
                 setNewHabitName(e.target.value);
                 if (newHabitTouched) {
                   setNewHabitErrors((prev) => ({
                     ...prev,
-                    name: e.target.value.length > 20 ? "Habit name must be less than 30 characters" : "",
+                    name: e.target.value.length > 20 ? "Habit name must be less than 20 characters" : "",
                   }));
                 }
               }}
@@ -583,6 +560,7 @@ export default function HomePage() {
             />
             <TextField
               margin="dense"
+              autoComplete="off"
               label="Monthly Goal"
               fullWidth
               type="number"
@@ -608,6 +586,8 @@ export default function HomePage() {
             <Button
               onClick={() => {
                 setNewHabitDialogOpen(false);
+                setNewHabitName("");
+                setNewHabitGoal("");
                 setNewHabitErrors({ name: "", goal: "" });
                 setNewHabitTouched(false);
               }}
@@ -622,8 +602,8 @@ export default function HomePage() {
                   name:
                     newHabitName.length === 0
                       ? "Habit name is required"
-                      : newHabitName.length > 30
-                      ? "Habit name must be less than 30 characters"
+                      : newHabitName.length > 20
+                      ? "Habit name must be less than 20 characters"
                       : "",
                   goal:
                     isNaN(Number(newHabitGoal)) ||
@@ -638,10 +618,15 @@ export default function HomePage() {
                 const hasErrors = Object.values(errors).some((e) => e !== "");
                 if (hasErrors) return;
 
-                const saved = await createHabit(newHabitName, Number(newHabitGoal));
-                if (saved) {
-                  setHabits((prev) => [...prev, { name: newHabitName, goal: Number(newHabitGoal) }]);
-                  setHabitData((prev) => ({ ...prev, [newHabitName]: {} }));
+                const result = await createHabit(newHabitName, Number(newHabitGoal));
+                  if (result.success) {
+                    const newHabit = {
+                      id: result.id,
+                      name: newHabitName,
+                      goal: Number(newHabitGoal),
+                    };
+                  setHabits((prev) => [...prev, newHabit]);
+                  setHabitData((prev) => ({ ...prev, [result.id]: {} }));
                   setNewHabitName("");
                   setNewHabitGoal("");
                   setNewHabitErrors({ name: "", goal: "" });
@@ -665,6 +650,7 @@ export default function HomePage() {
           <DialogContent>
             <TextField
               margin="dense"
+              autoComplete="off"
               label="Habit Name"
               fullWidth
               value={editHabitName}
@@ -673,20 +659,21 @@ export default function HomePage() {
                 if (editHabitTouched) {
                   setEditHabitErrors((prev) => ({
                     ...prev,
-                    name: e.target.value.length > 30 ? "Habit name must be less than 30 characters" : "",
+                    name: e.target.value.length > 20 ? "Habit name must be less than 20 characters" : "",
                   }));
                 }
               }}
               error={Boolean(editHabitErrors.name)}
               helperText={
                 editHabitTouched
-                  ? editHabitErrors.name || `${editHabitName.length}/30`
-                  : `${editHabitName.length}/30`
+                  ? editHabitErrors.name || `${editHabitName.length}/20`
+                  : `${editHabitName.length}/20`
               }
             />
             <TextField
               margin="dense"
               label="Monthly Goal"
+              autoComplete="off"
               type="number"
               fullWidth
               value={editHabitGoal}
@@ -725,8 +712,8 @@ export default function HomePage() {
                   name:
                     editHabitName.length === 0
                       ? "Habit name is required"
-                      : editHabitName.length > 30
-                      ? "Habit name must be less than 30 characters"
+                      : editHabitName.length > 20
+                      ? "Habit name must be less than 20 characters"
                       : "",
                   goal:
                     isNaN(Number(editHabitGoal)) ||
@@ -751,7 +738,9 @@ export default function HomePage() {
         <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
           <DialogTitle>Delete Habit</DialogTitle>
           <DialogContent>
-            <Typography>Are you sure you want to delete the habit "{habitToDelete}"?</Typography>
+          <Typography>
+            Are you sure you want to delete the habit "{habits.find((h) => h.id === habitToDelete)?.name}"?
+          </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setConfirmDeleteOpen(false)}>No</Button>

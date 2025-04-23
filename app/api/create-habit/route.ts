@@ -5,36 +5,27 @@ import admin from "firebase-admin";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
   const firestoreUp = await isFirestoreAvailable();
-  if (!firestoreUp) {
-    return NextResponse.json({ success: false, error: "Firestore is down" }, { status: 503 });
-  }
+  if (!firestoreUp) return NextResponse.json({ success: false, error: "Firestore is down" }, { status: 503 });
 
-  const { habitId, goal } = await req.json();
-  if (!habitId) {
-    return NextResponse.json({ success: false, error: "Missing habitId" }, { status: 400 });
+  const { name, goal } = await req.json();
+  if (!name || goal === undefined) {
+    return NextResponse.json({ success: false, error: "Missing habit data" }, { status: 400 });
   }
 
   try {
-    const docRef = db
-      .collection("users")
-      .doc(userId)
-      .collection("habits")
-      .doc(habitId);
+    const newHabitRef = db.collection("users").doc(userId).collection("habits").doc();
+    const habitId = newHabitRef.id;
 
-    await docRef.set(
-      {
-        goal: goal || 0,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(), // ✅ Set createdAt timestamp
-      },
-      { merge: true }
-    );
+    await newHabitRef.set({
+      name,
+      goal,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id: habitId });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ success: false, error: msg }, { status: 500 });

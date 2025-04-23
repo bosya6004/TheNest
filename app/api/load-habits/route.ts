@@ -4,14 +4,10 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
   const firestoreUp = await isFirestoreAvailable();
-  if (!firestoreUp) {
-    return NextResponse.json({ success: false, error: "Firestore unavailable" }, { status: 503 });
-  }
+  if (!firestoreUp) return NextResponse.json({ success: false, error: "Firestore unavailable" }, { status: 503 });
 
   const { habits, month } = await req.json();
   if (!habits || !Array.isArray(habits) || !month) {
@@ -19,23 +15,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const habitData: { [habit: string]: { [day: string]: boolean } } = {};
+    const habitData: { [habitId: string]: { [day: string]: boolean } } = {};
 
-    for (const habit of habits) {
+    for (const habitId of habits) {
       const docRef = db
         .collection("users")
         .doc(userId)
         .collection("habits")
-        .doc(habit)
+        .doc(habitId)
         .collection("months")
         .doc(month);
 
       const docSnap = await docRef.get();
-      if (docSnap.exists) {
-        habitData[habit] = docSnap.data() as { [day: string]: boolean };
-      } else {
-        habitData[habit] = {}; // no data yet for this habit/month
-      }
+      habitData[habitId] = docSnap.exists ? docSnap.data() as any : {};
     }
 
     return NextResponse.json({ success: true, habitData });

@@ -1,40 +1,28 @@
 import { auth } from "@clerk/nextjs/server";
+import { db } from "@/lib/firebaseAdmin";
 import { NextResponse } from "next/server";
-import { db, isFirestoreAvailable } from "@/lib/firebaseAdmin";
 
 export async function POST(req: Request) {
-    const { userId } = await auth();
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ success: false, error: "Unauthorized" });
 
-  if (!userId) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
-
-  const firestoreIsUp = await isFirestoreAvailable();
-  if (!firestoreIsUp) {
-    return NextResponse.json({ success: false, error: "Firestore is down" }, { status: 503 });
+  const { habitId, month, day, value } = await req.json();
+  if (!habitId || !month || !day) {
+    return NextResponse.json({ success: false, error: "Invalid input" });
   }
 
   try {
-    const body = await req.json();
-    const { habitId, month, day, value } = body;
-
-    if (!habitId || !month || day === undefined || value === undefined) {
-      return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
-    }
-
-    const docRef = db
+    await db
       .collection("users")
       .doc(userId)
       .collection("habits")
       .doc(habitId)
       .collection("months")
-      .doc(month);
-
-    await docRef.set({ [day]: value }, { merge: true });
+      .doc(month)
+      .set({ [day]: value }, { merge: true });
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: "Failed to save habit" }, { status: 500 });
   }
 }
